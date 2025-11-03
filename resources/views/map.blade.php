@@ -143,7 +143,16 @@
 
                 // Build popup that lists each travel in this group (so edit/delete per travel still available)
                 const travelItemsHtml = group.travels.map(t => {
-                    return `<div style="margin-bottom:6px"><span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span><b>${t.name || t.type || 'Travel #' + t.id}</b><div>${t.type ? ('Type: ' + t.type) : ''}</div><div>${t.reason || ''}</div><div><button onclick=\"editTravel(${t.id})\">✏️ Edit</button> <button onclick=\"redrawTravel(${t.id})\">🖊️ Redraw</button> <button onclick=\"deleteTravel(${t.id})\">🗑️ Delete</button></div></div>`;
+                    const nums = visitsByTravel[t.id] || [];
+                    const numsLine = nums.length ? `<div><b>${nums.join(', ')}</b></div>` : '';
+                    return `<div style=\"margin-bottom:6px\">`
+                        + `<span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span>`
+                        + `<b>${t.name || t.type || 'Travel #' + t.id}</b>`
+                        + `<div>${t.type ? ('Type: ' + t.type) : ''}</div>`
+                        + `<div>${t.reason || ''}</div>`
+                        + numsLine
+                        + `<div><button onclick=\"editTravel(${t.id})\">✏️ Edit</button> <button onclick=\"redrawTravel(${t.id})\">🖊️ Redraw</button> <button onclick=\"deleteTravel(${t.id})\">🗑️ Delete</button></div>`
+                        + `</div>`;
                 }).join('');
                 const info = `<div>${travelItemsHtml}</div>`;
                 line.bindPopup(info);
