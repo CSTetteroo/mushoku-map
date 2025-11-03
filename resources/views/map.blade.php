@@ -167,7 +167,7 @@
 
             // Render places
             places.forEach(p => {
-                const m = L.marker([p.y, p.x], { draggable: true }).addTo(markersLayer);
+                const m = L.marker([p.y, p.x]).addTo(markersLayer);
                 m.place = p;
                 // Number label(s) (permanent tooltip) if exist
                 if (placeLabels[p.id] && placeLabels[p.id].length) {
@@ -175,11 +175,6 @@
                     m.bindTooltip(text, { permanent: true, direction: 'top', className: 'place-number', offset: [0, -16] }).openTooltip();
                 }
 
-                m.on('dragend', async (e) => {
-                    const pos = e.target.getLatLng();
-                    await api.put(`/api/places/${p.id}`, { name: p.name, description: p.description, x: pos.lng, y: pos.lat });
-                    await reloadData();
-                });
 
                 m.on('click', async () => {
                     if (mode === 'drawTravel' && !drawState.startPlace) {
