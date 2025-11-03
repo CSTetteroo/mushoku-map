@@ -28,11 +28,11 @@
         }
         .road-badges {
             pointer-events: none;
-            /* background: rgba(144, 115, 115, 0); */
+            /* background: rgba(255,255,255,0.9); */
             border-radius: 12px;
             padding: 2px 6px;
             /* border: 1px solid rgba(0,0,0,0.2);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.25); */aaaaa
+            box-shadow: 0 1px 3px rgba(0,0,0,0.25); */
             font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
         }
         .road-badges .badge {
@@ -132,30 +132,36 @@
 
             const placeLabels = computePlaceLabels();
             const visitsByTravel = computeVisitsByTravel();
+            const placedBadgeCenters = [];
 
-            // Render travels first so markers are on top
-            travels.forEach(t => {
-                const line = L.polyline(t.path, { color: t.color || 'red', weight: 3 }).addTo(travelsLayer);
-                line.travel = t; // attach
-                const info = `
-                    <div>
-                        <div><span class="color-dot" style="background:${t.color || 'red'}"></span><b>${t.name || t.type || 'Travel'}</b></div>
-                        <div>${t.type ? ('Type: ' + t.type) : ''}</div>
-                        <div>${t.reason || ''}</div>
-                        <hr>
-                        <button onclick="editTravel(${t.id})">✏️ Edit</button>
-                        <button onclick="redrawTravel(${t.id})">🖊️ Redraw Path</button>
-                        <button onclick="deleteTravel(${t.id})">🗑️ Delete</button>
-                    </div>`;
+            // Render travels grouped by exact path match so identical geometries merge (show combined numbers)
+            const travelGroups = groupTravelsByPath(travels);
+            travelGroups.forEach(group => {
+                const rep = group.travels[0];
+                const line = L.polyline(rep.path, { color: rep.color || 'red', weight: 3 }).addTo(travelsLayer);
+                line.group = group; // attach
+
+                // Build popup that lists each travel in this group (so edit/delete per travel still available)
+                const travelItemsHtml = group.travels.map(t => {
+                    return `<div style="margin-bottom:6px"><span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span><b>${t.name || t.type || 'Travel #' + t.id}</b><div>${t.type ? ('Type: ' + t.type) : ''}</div><div>${t.reason || ''}</div><div><button onclick=\"editTravel(${t.id})\">✏️ Edit</button> <button onclick=\"redrawTravel(${t.id})\">🖊️ Redraw</button> <button onclick=\"deleteTravel(${t.id})\">🗑️ Delete</button></div></div>`;
+                }).join('');
+                const info = `<div>${travelItemsHtml}</div>`;
                 line.bindPopup(info);
 
-                // Add travel number badges on the road if this travel has visits
-                const numbers = visitsByTravel[t.id];
-                if (numbers && numbers.length) {
+                // Add aggregated travel number badges on the road if any of these travels have visits
+                const numbers = [];
+                group.travels.forEach(t => {
+                    const nums = visitsByTravel[t.id] || [];
+                    nums.forEach(n => { if (!numbers.includes(n)) numbers.push(n); });
+                });
+                numbers.sort((a,b) => a-b);
+                if (numbers.length) {
                     const center = line.getBounds().getCenter();
+                    const pos = resolveBadgePosition([center.lat, center.lng], placedBadgeCenters);
+                    placedBadgeCenters.push(pos);
                     const html = `<div class="road-badges">${numbers.map(n => `<span class=\"badge\">${n}</span>`).join('')}</div>`;
                     const icon = L.divIcon({ className: 'road-badges', html, iconSize: null });
-                    L.marker([center.lat, center.lng], { icon, interactive: false, keyboard: false }).addTo(travelsLayer);
+                    L.marker(pos, { icon, interactive: false, keyboard: false }).addTo(travelsLayer);
                 }
             });
 
@@ -194,17 +200,17 @@
                     }
 
                     const visits = await api.get(`/api/places/${p.id}/visits`);
-                    const html = `
-                        <div>
-                            <b>${p.name}</b><br>${p.description || ''}<hr>
-                            <b>Visits:</b><br>
-                            ${visits.length ? visits.map(v => `<b>#${v.travel_number || '-'}</b> ${v.reason || ''} <i>${v.story_time || ''}</i>`).join('<br>') : 'No visits yet.'}
-                            <hr>
-                            <button onclick="addVisit(${p.id})">➕ Add Visit</button>
-                            <button onclick="editPlace(${p.id})">✏️ Edit Place</button>
-                            <button onclick="deletePlace(${p.id})">🗑️ Delete Place</button>
-                            <button onclick="startTravelFrom(${p.id})">🧭 Start Travel here</button>
-                        </div>`;
+                        const html = `
+                            <div>
+                                <b>${p.name}</b><br>${p.description || ''}<hr>
+                                <b>Visits:</b><br>
+                                ${visits.length ? visits.map(v => `<div><b>#${v.travel_number || '-'}</b> ${v.reason || ''} <i>${v.story_time || ''}</i> <button onclick=\"deleteVisit(${v.id})\">🗑 Remove</button></div>`).join('') : 'No visits yet.'}
+                                <hr>
+                                <button onclick="addVisit(${p.id})">➕ Add Visit</button>
+                                <button onclick="editPlace(${p.id})">✏️ Edit Place</button>
+                                <button onclick="deletePlace(${p.id})">🗑️ Delete Place</button>
+                                <button onclick="startTravelFrom(${p.id})">🧭 Start Travel here</button>
+                            </div>`;
                     m.bindPopup(html).openPopup();
                 });
             });
@@ -249,6 +255,49 @@
             return out;
         }
 
+        function groupTravelsByPath(travels) {
+            // Exact-match grouping with reverse detection: A..B equals B..A when points match exactly
+            const groups = {};
+            travels.forEach(t => {
+                try {
+                    const key = JSON.stringify(t.path);
+                    const revKey = JSON.stringify([...(t.path || [])].reverse());
+                    if (groups[key]) {
+                        groups[key].travels.push(t);
+                    } else if (groups[revKey]) {
+                        groups[revKey].travels.push(t);
+                    } else {
+                        groups[key] = { key, travels: [t] };
+                    }
+                } catch (e) {
+                    // skip non-serializable
+                }
+            });
+            return Object.values(groups);
+        }
+
+        function resolveBadgePosition([lat, lng], occupied) {
+            // Avoid overlapping badge markers by offsetting if another badge is nearby
+            const offsets = [
+                [0, 0], [0, -18], [0, 18], [-18, 0], [18, 0],
+                [-14, -14], [-14, 14], [14, -14], [14, 14],
+                [0, -32], [0, 32], [-32, 0], [32, 0]
+            ];
+            const thresholdSq = 20 * 20; // pixels^2 (Simple CRS -> lat/lng are pixels)
+            for (let i = 0; i < offsets.length; i++) {
+                const p = [lat + offsets[i][0], lng + offsets[i][1]];
+                let ok = true;
+                for (const q of occupied) {
+                    const dx = p[0] - q[0];
+                    const dy = p[1] - q[1];
+                    if ((dx*dx + dy*dy) < thresholdSq) { ok = false; break; }
+                }
+                if (ok) return p;
+            }
+            // Fallback: slight shift
+            return [lat + 40, lng];
+        }
+
         // --- Toolbar wiring ---
         btnAddPlace.addEventListener('click', () => setMode(mode === 'addPlace' ? 'view' : 'addPlace'));
         btnStartTravel.addEventListener('click', () => {
@@ -291,6 +340,12 @@
             const storyTime = prompt('When in story?');
             if (!reason) return alert('Cancelled.');
             await api.post('/api/place-visits', { place_id: placeId, travel_number: travelNum ? Number(travelNum) : null, reason, story_time: storyTime || null });
+            await reloadData();
+        };
+
+        window.deleteVisit = async function(visitId) {
+            if (!confirm('Delete this visit?')) return;
+            await api.del(`/api/place-visits/${visitId}`);
             await reloadData();
         };
 
