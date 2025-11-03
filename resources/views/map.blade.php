@@ -46,13 +46,13 @@
 </head>
 <body>
     <div id="map"></div>
-    <div class="toolbar">
+    <div class="toolbar card">
         <h4>Map tools</h4>
-        <button id="btnAddPlace">➕ Add Place</button>
-    <button id="btnStartTravel">🧭 Start Travel</button>
-    <button id="btnFinish" style="display:none;">✅ Finish</button>
-    <button id="btnCancel" style="display:none;">✖ Cancel</button>
-        <div class="help-tip" id="helpTip">Click a marker to view visits or add one.</div>
+        <button id="btnAddPlace" class="btn btn-primary">➕ Add Place</button>
+    <button id="btnStartTravel"class="btn">🧭 Start Travel</button>
+    <button id="btnFinish" class="btn" style="display:none;">✅ Finish</button>
+    <button id="btnCancel" class="btn" style="display:none;">✖ Cancel</button>
+        <div class="help-tip" class="btn" id="helpTip">Click a marker to view visits or add one.</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
