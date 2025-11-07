@@ -42,6 +42,68 @@
             border-radius: 9px; background: #222; color: #fff; font-size: 12px; font-weight: 700;
             text-align: center; border: 1px solid #fff;
         }
+
+        /* Futuristic sliding side panel */
+        .side-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: 420px;
+            max-width: 90vw;
+            transform: translateX(100%);
+            transition: transform 260ms ease-out, box-shadow 260ms ease-out;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(180deg, rgba(10,10,14,0.92) 0%, rgba(17,22,26,0.94) 100%);
+            backdrop-filter: blur(10px);
+            color: #e6f0ff;
+            border-left: 1px solid rgba(0,255,200,0.25);
+            box-shadow: -10px 0 30px rgba(0,0,0,0.35);
+        }
+        .side-panel.open { transform: translateX(0); }
+        .side-panel-header {
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0,255,200,0.2);
+            background: linear-gradient(90deg, rgba(0,200,255,0.12), rgba(0,255,200,0.06) 60%, transparent);
+            box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
+        }
+        .side-panel-title {
+            font-weight: 700; letter-spacing: 0.3px;
+            text-shadow: 0 0 10px rgba(0,255,200,0.35);
+        }
+        .side-panel-close {
+            background: transparent; border: 1px solid rgba(0,255,200,0.35);
+            color: #aef; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+        }
+        .side-panel-close:hover { background: rgba(0,255,200,0.08); }
+        .side-panel-content {
+            padding: 14px 16px; overflow-y: auto; flex: 1;
+        }
+        .panel-section { margin-bottom: 14px; }
+        .panel-section h5 {
+            margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #9fe;
+            text-transform: uppercase; letter-spacing: 0.8px;
+        }
+        .panel-actions button {
+            margin: 4px 6px 0 0; padding: 6px 10px;
+            border-radius: 8px; border: 1px solid rgba(0,255,200,0.35);
+            background: rgba(0,0,0,0.2); color: #e6f0ff; cursor: pointer;
+        }
+        .panel-actions button:hover { background: rgba(0,255,200,0.08); }
+        .visit-item { padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,0.04); margin: 6px 0; }
+        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+        /* Backdrop */
+        .side-panel-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.25);
+            backdrop-filter: blur(2px); z-index: 1500; opacity: 0; pointer-events: none; transition: opacity 200ms ease-out;
+        }
+        .side-panel-backdrop.open { opacity: 1; pointer-events: auto; }
     </style>
 </head>
 <body>
@@ -54,6 +116,16 @@
     <button id="btnCancel" class="btn" style="display:none;">✖ Cancel</button>
         <div class="help-tip" class="btn" id="helpTip">Click a marker to view visits or add one.</div>
     </div>
+
+    <!-- Sliding side panel -->
+    <div id="sidePanel" class="side-panel" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="side-panel-header">
+            <div id="sidePanelTitle" class="side-panel-title">Details</div>
+            <button id="sidePanelClose" class="side-panel-close" title="Close">✖</button>
+        </div>
+        <div id="sidePanelContent" class="side-panel-content"></div>
+    </div>
+    <div id="sidePanelBackdrop" class="side-panel-backdrop"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
@@ -140,22 +212,8 @@
                 const rep = group.travels[0];
                 const line = L.polyline(rep.path, { color: rep.color || 'red', weight: 3 }).addTo(travelsLayer);
                 line.group = group; // attach
-
-                // Build popup that lists each travel in this group (so edit/delete per travel still available)
-                const travelItemsHtml = group.travels.map(t => {
-                    const nums = visitsByTravel[t.id] || [];
-                    const numsLine = nums.length ? `<div><b>${nums.join(', ')}</b></div>` : '';
-                    return `<div style=\"margin-bottom:6px\">`
-                        + `<span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span>`
-                        + `<b>${t.name || t.type || 'Travel #' + t.id}</b>`
-                        + `<div>${t.type ? ('Type: ' + t.type) : ''}</div>`
-                        + `<div>${t.reason || ''}</div>`
-                        + numsLine
-                        + `<div><button onclick=\"editTravel(${t.id})\">✏️ Edit</button> <button onclick=\"redrawTravel(${t.id})\">🖊️ Redraw</button> <button onclick=\"deleteTravel(${t.id})\">🗑️ Delete</button></div>`
-                        + `</div>`;
-                }).join('');
-                const info = `<div>${travelItemsHtml}</div>`;
-                line.bindPopup(info);
+                // Wire click to open side panel for this group
+                line.on('click', () => openTravelGroupPanel(group, visitsByTravel));
 
                 // Add aggregated travel number badges on the road if any of these travels have visits
                 const numbers = [];
@@ -202,20 +260,8 @@
                         await finishTravelDialog();
                         return;
                     }
-
-                    const visits = await api.get(`/api/places/${p.id}/visits`);
-                        const html = `
-                            <div>
-                                <b>${p.name}</b><br>${p.description || ''}<hr>
-                                <b>Visits:</b><br>
-                                ${visits.length ? visits.map(v => `<div><b>#${v.travel_number || '-'}</b> ${v.reason || ''} <i>${v.story_time || ''}</i> <button onclick=\"deleteVisit(${v.id})\">🗑 Remove</button></div>`).join('') : 'No visits yet.'}
-                                <hr>
-                                <button onclick="addVisit(${p.id})">➕ Add Visit</button>
-                                <button onclick="editPlace(${p.id})">✏️ Edit Place</button>
-                                <button onclick="deletePlace(${p.id})">🗑️ Delete Place</button>
-                                <button onclick="startTravelFrom(${p.id})">🧭 Start Travel here</button>
-                            </div>`;
-                    m.bindPopup(html).openPopup();
+                    const pv = await api.get(`/api/places/${p.id}/visits`);
+                    openPlacePanel(p, pv);
                 });
             });
         }
@@ -337,7 +383,171 @@
             }
         });
 
-        // --- Actions exposed to popups ---
+        // --- Panel wiring ---
+        const sidePanel = document.getElementById('sidePanel');
+        const sidePanelTitle = document.getElementById('sidePanelTitle');
+        const sidePanelContent = document.getElementById('sidePanelContent');
+        const sidePanelClose = document.getElementById('sidePanelClose');
+        const sidePanelBackdrop = document.getElementById('sidePanelBackdrop');
+
+        function openPanel(title, html) {
+            sidePanelTitle.textContent = title || 'Details';
+            sidePanelContent.innerHTML = html || '';
+            sidePanel.classList.add('open');
+            sidePanelBackdrop.classList.add('open');
+            sidePanel.setAttribute('aria-hidden', 'false');
+        }
+        function closePanel() {
+            sidePanel.classList.remove('open');
+            sidePanelBackdrop.classList.remove('open');
+            sidePanel.setAttribute('aria-hidden', 'true');
+        }
+        sidePanelClose.addEventListener('click', closePanel);
+        sidePanelBackdrop.addEventListener('click', closePanel);
+        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+
+        function openPlacePanel(place, placeVisits) {
+            const visitsHtml = (placeVisits && placeVisits.length)
+                ? placeVisits.map(v => (
+                    `<div class="visit-item">`
+                    + `<b>#${v.travel_number || '-'}</b> ${v.reason || ''} `
+                    + (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '')
+                    + ` <button onclick=\"deleteVisit(${v.id})\">🗑 Remove</button>`
+                    + `</div>`
+                )).join('')
+                : '<div class="mono" style="opacity:0.8">No visits yet.</div>';
+
+            const html = `
+                <div class="panel-section">
+                    <h5>Place</h5>
+                    <div><b>${place.name}</b></div>
+                    <div style="opacity:.9">${place.description || ''}</div>
+                </div>
+                <div class="panel-section">
+                    <h5>Visits</h5>
+                    ${visitsHtml}
+                </div>
+                <div class="panel-section panel-actions">
+                    <button onclick="addVisit(${place.id})">➕ Add Visit</button>
+                    <button onclick="editPlace(${place.id})">✏️ Edit Place</button>
+                    <button onclick="deletePlace(${place.id})">🗑️ Delete Place</button>
+                    <button onclick="startTravelFrom(${place.id})">🧭 Start Travel here</button>
+                </div>
+            `;
+            openPanel('Place details', html);
+        }
+
+        function openTravelGroupPanel(group, visitsByTravel) {
+            const items = group.travels.map(t => {
+                const nums = visitsByTravel[t.id] || [];
+                const numsLine = nums.length ? `<div class=\"mono\"><b>${nums.join(', ')}</b></div>` : '';
+                return `
+                    <div class=\"visit-item\" style=\"margin-bottom:8px\">
+                        <div><span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span><b>${t.name || t.type || ('Travel #' + t.id)}</b></div>
+                        ${t.type ? (`<div>Type: ${t.type}</div>`) : ''}
+                        ${t.reason ? (`<div>${t.reason}</div>`) : ''}
+                        ${numsLine}
+                        <div class=\"panel-actions\" style=\"margin-top:6px\">
+                            <button onclick=\"editTravel(${t.id})\">✏️ Edit</button>
+                            <button onclick=\"redrawTravel(${t.id})\">🖊️ Redraw</button>
+                            <button onclick=\"deleteTravel(${t.id})\">🗑️ Delete</button>
+                        </div>
+                    </div>`;
+            }).join('');
+
+            const allNums = [];
+            group.travels.forEach(t => {
+                (visitsByTravel[t.id] || []).forEach(n => { if (!allNums.includes(n)) allNums.push(n); });
+            });
+            allNums.sort((a,b) => a-b);
+            const badges = allNums.length ? `<div class=\"panel-section\"><h5>Numbers</h5><div>${allNums.map(n => `<span class=\"badge\">${n}</span>`).join('')}</div></div>` : '';
+
+            const html = `
+                ${badges}
+                <div class=\"panel-section\"><h5>Travels on this path</h5>${items}</div>
+            `;
+            openPanel('Travel path', html);
+        }
+
+        function openPlaceEditPanel(place) {
+            const html = `
+                <div class="panel-section">
+                    <h5>Edit place</h5>
+                    <label>Name<br><input id="pl_name" type="text" value="${(place.name || '').replaceAll('"','&quot;')}" style="width:100%"></label>
+                </div>
+                <div class="panel-section">
+                    <label>Description<br><textarea id="pl_desc" rows="3" style="width:100%">${(place.description || '').replaceAll('<','&lt;')}</textarea></label>
+                </div>
+                <div class="panel-section" style="display:flex; gap:8px">
+                    <label style="flex:1">X (pixel)<br><input id="pl_x" type="number" step="0.1" value="${Number(place.x).toFixed(1)}" style="width:100%"></label>
+                    <label style="flex:1">Y (pixel)<br><input id="pl_y" type="number" step="0.1" value="${Number(place.y).toFixed(1)}" style="width:100%"></label>
+                </div>
+                <div class="panel-actions">
+                    <button id="pl_save">💾 Save</button>
+                    <button id="pl_cancel">Cancel</button>
+                </div>
+            `;
+            openPanel('Edit place', html);
+            document.getElementById('pl_save').addEventListener('click', async () => {
+                const name = (document.getElementById('pl_name').value || '').trim();
+                if (!name) { alert('Name is required'); return; }
+                const description = (document.getElementById('pl_desc').value || '').trim() || null;
+                const x = parseFloat(document.getElementById('pl_x').value);
+                const y = parseFloat(document.getElementById('pl_y').value);
+                await api.put(`/api/places/${place.id}`, { name, description, x, y });
+                await reloadData();
+                closePanel();
+            });
+            document.getElementById('pl_cancel').addEventListener('click', () => closePanel());
+        }
+
+        function openTravelEditPanel(travel) {
+            const options = (selectedId) => {
+                const none = `<option value="">(none)</option>`;
+                const opts = places.map(pl => `<option value="${pl.id}" ${selectedId===pl.id? 'selected':''}>${pl.name}</option>`).join('');
+                return none + opts;
+            };
+            const html = `
+                <div class="panel-section">
+                    <h5>Edit travel</h5>
+                    <label>Name<br><input id="tr_name" type="text" value="${(travel.name || '').replaceAll('"','&quot;')}" style="width:100%"></label>
+                </div>
+                <div class="panel-section" style="display:flex; gap:8px">
+                    <label style="flex:1">Type<br><input id="tr_type" type="text" value="${(travel.type || '').replaceAll('"','&quot;')}" style="width:100%"></label>
+                    <label style="flex:1">Color<br><input id="tr_color" type="text" value="${(travel.color || 'red').replaceAll('"','&quot;')}" style="width:100%"></label>
+                </div>
+                <div class="panel-section">
+                    <label>Reason / notes<br><textarea id="tr_reason" rows="3" style="width:100%">${(travel.reason || '').replaceAll('<','&lt;')}</textarea></label>
+                </div>
+                <div class="panel-section" style="display:flex; gap:8px">
+                    <label style="flex:1">From place<br><select id="tr_from" style="width:100%">${options(travel.from_place_id || null)}</select></label>
+                    <label style="flex:1">To place<br><select id="tr_to" style="width:100%">${options(travel.to_place_id || null)}</select></label>
+                </div>
+                <div class="panel-section mono" style="opacity:.8">Path points: ${Array.isArray(travel.path)? travel.path.length: 0} (use Redraw to edit geometry)</div>
+                <div class="panel-actions">
+                    <button id="tr_save">💾 Save</button>
+                    <button id="tr_cancel">Cancel</button>
+                </div>
+            `;
+            openPanel('Edit travel', html);
+            document.getElementById('tr_save').addEventListener('click', async () => {
+                const name = (document.getElementById('tr_name').value || '').trim() || null;
+                const type = (document.getElementById('tr_type').value || '').trim() || null;
+                const color = (document.getElementById('tr_color').value || '').trim() || 'red';
+                const reason = (document.getElementById('tr_reason').value || '').trim() || null;
+                const fromRaw = document.getElementById('tr_from').value;
+                const toRaw = document.getElementById('tr_to').value;
+                const from_place_id = fromRaw ? Number(fromRaw) : null;
+                const to_place_id = toRaw ? Number(toRaw) : null;
+                const payload = { name, type, color, reason, path: travel.path, from_place_id, to_place_id };
+                await api.put(`/api/travels/${travel.id}`, payload);
+                await reloadData();
+                closePanel();
+            });
+            document.getElementById('tr_cancel').addEventListener('click', () => closePanel());
+        }
+
+        // --- Actions exposed to panel buttons ---
         window.addVisit = async function(placeId) {
             const travelNum = prompt('Travel number?');
             const reason = prompt('Reason?');
@@ -353,14 +563,10 @@
             await reloadData();
         };
 
-        window.editPlace = async function(placeId) {
+        window.editPlace = function(placeId) {
             const p = places.find(pp => pp.id === placeId);
             if (!p) return;
-            const name = prompt('Place name:', p.name);
-            if (!name) return;
-            const description = prompt('Description:', p.description || '') || null;
-            await api.put(`/api/places/${p.id}`, { name, description, x: p.x, y: p.y });
-            await reloadData();
+            openPlaceEditPanel(p);
         };
 
         window.deletePlace = async function(placeId) {
@@ -410,15 +616,10 @@
             await reloadData();
         }
 
-        window.editTravel = async function(travelId) {
+        window.editTravel = function(travelId) {
             const t = travels.find(tt => tt.id === travelId);
             if (!t) return;
-            const name = prompt('Travel name:', t.name || '') || null;
-            const type = prompt('Type:', t.type || '') || null;
-            const color = prompt('Color:', t.color || 'red') || 'red';
-            const reason = prompt('Reason/notes:', t.reason || '') || null;
-            await api.put(`/api/travels/${t.id}`, { name, type, color, reason, path: t.path });
-            await reloadData();
+            openTravelEditPanel(t);
         };
 
         window.redrawTravel = async function(travelId) {
