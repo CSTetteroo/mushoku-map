@@ -411,11 +411,49 @@
         sidePanelBackdrop.addEventListener('click', closePanel);
         window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
 
+        // --- Minimal rich text rendering (bullets + line breaks) ---
+        function escapeHtml(s) {
+            return (s || '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;');
+        }
+        function formatRichText(text) {
+            if (!text) return '';
+            const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+            let html = '';
+            let inList = false;
+            let inPara = false;
+            for (let raw of lines) {
+                const line = raw;
+                const m = /^\s*-\s+(.*)$/.exec(line);
+                if (m) {
+                    if (inPara) { html += '</p>'; inPara = false; }
+                    if (!inList) { html += '<ul>'; inList = true; }
+                    html += `<li>${escapeHtml(m[1])}</li>`;
+                    continue;
+                }
+                if (line.trim() === '') {
+                    if (inPara) { html += '</p>'; inPara = false; }
+                    if (inList) { html += '</ul>'; inList = false; }
+                    continue;
+                }
+                if (inList) { html += '</ul>'; inList = false; }
+                if (!inPara) { html += '<p>'; inPara = true; }
+                else { html += '<br>'; }
+                html += escapeHtml(line);
+            }
+            if (inPara) html += '</p>';
+            if (inList) html += '</ul>';
+            return html;
+        }
+
         function openPlacePanel(place, placeVisits) {
             const visitsHtml = (placeVisits && placeVisits.length)
-                ? placeVisits.map(v => (
-                    `<div class="visit-item">`
-                    + `<b>#${v.travel_number || '-'}</b> ${v.reason || ''} `
+                    ? placeVisits.map(v => (
+                        `<div class="visit-item">`
+                        + `<b>#${(v.travel_number != null ? v.travel_number : '-')}</b> <span class="rt">${formatRichText(v.reason || '')}</span> `
                     + (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '')
                     + `<div class=\"panel-actions\" style=\"margin-top:6px\">`
                     + `<button onclick=\"openVisitEdit(${v.id})\">✏️ Edit</button>`
@@ -429,7 +467,7 @@
                 <div class="panel-section">
                     <h5>Place</h5>
                     <div><b>${place.name}</b></div>
-                    <div style="opacity:.9">${place.description || ''}</div>
+                    <div class="rt" style="opacity:.9">${formatRichText(place.description || '')}</div>
                 </div>
                 <div class="panel-section">
                     <h5>Visits</h5>
@@ -453,7 +491,7 @@
                     <div class=\"visit-item\" style=\"margin-bottom:8px\">
                         <div><span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span><b>${t.name || t.type || ('Travel #' + t.id)}</b></div>
                         ${t.type ? (`<div>Type: ${t.type}</div>`) : ''}
-                        ${t.reason ? (`<div>${t.reason}</div>`) : ''}
+                        ${t.reason ? (`<div class=\"rt\">${formatRichText(t.reason)}</div>`) : ''}
                         ${numsLine}
                         <div class=\"panel-actions\" style=\"margin-top:6px\">
                             <button onclick=\"editTravel(${t.id})\">✏️ Edit</button>
@@ -556,13 +594,46 @@
         }
 
         // --- Actions exposed to panel buttons ---
-        window.addVisit = async function(placeId) {
-            const travelNum = prompt('Travel number?');
-            const reason = prompt('Reason?');
-            const storyTime = prompt('When in story?');
-            if (!reason) return alert('Cancelled.');
-            await api.post('/api/place-visits', { place_id: placeId, travel_number: travelNum ? Number(travelNum) : null, reason, story_time: storyTime || null });
-            await reloadData();
+        window.addVisit = function(placeId) {
+            const place = places.find(p => p.id === placeId);
+            if (!place) return;
+            const travelOptions = '<option value="">None</option>' + travels.map(t => `<option value='${t.id}'>${t.name || t.type || ('Travel #' + t.id)}</option>`).join('');
+            const html = `
+                <div class='panel-section'><h5>New visit at ${place.name}</h5>
+                    <label>Travel number<br><input id='nv_num' type='number' style='width:100%'></label>
+                </div>
+                <div class='panel-section' style='display:flex; gap:8px'>
+                    <label style='flex:1'>Travel<br><select id='nv_travel' style='width:100%'>${travelOptions}</select></label>
+                </div>
+                <div class='panel-section'>
+                    <label>Reason (supports - bullets & newlines)<br><textarea id='nv_reason' rows='5' style='width:100%'></textarea></label>
+                </div>
+                <div class='panel-section'>
+                    <label>Story time<br><input id='nv_story' type='text' style='width:100%'></label>
+                </div>
+                <div class='panel-actions'>
+                    <button id='nv_save'>💾 Save</button>
+                    <button id='nv_cancel'>Cancel</button>
+                </div>
+            `;
+            openPanel('Add visit', html);
+            document.getElementById('nv_save').addEventListener('click', async () => {
+                const travel_number_raw = document.getElementById('nv_num').value;
+                const travel_number = travel_number_raw === '' ? null : Number(travel_number_raw);
+                const travel_id_raw = document.getElementById('nv_travel').value;
+                const travel_id = travel_id_raw ? Number(travel_id_raw) : null;
+                const reason = (document.getElementById('nv_reason').value || '').trim() || null;
+                const story_time = (document.getElementById('nv_story').value || '').trim() || null;
+                if (!reason) { alert('Reason required'); return; }
+                await api.post('/api/place-visits', { place_id: placeId, travel_id, travel_number, reason, story_time });
+                await reloadData();
+                const pv = await api.get(`/api/places/${place.id}/visits`);
+                openPlacePanel(place, pv);
+            });
+            document.getElementById('nv_cancel').addEventListener('click', async () => {
+                const pv = await api.get(`/api/places/${place.id}/visits`);
+                openPlacePanel(place, pv);
+            });
         };
 
         window.deleteVisit = async function(visitId, placeId) {
