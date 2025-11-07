@@ -28,6 +28,22 @@ class PlaceVisitController extends Controller
         return PlaceVisit::create($data);
     }
 
+    public function show(PlaceVisit $placeVisit) {
+        return $placeVisit->load(['place','travel']);
+    }
+
+    public function update(Request $request, PlaceVisit $placeVisit) {
+        $data = $request->validate([
+            'place_id' => 'required|exists:places,id',
+            'travel_id' => 'nullable|exists:travels,id',
+            'travel_number' => 'nullable|integer',
+            'story_time' => 'nullable|string',
+            'reason' => 'nullable|string',
+        ]);
+        $placeVisit->update($data);
+        return $placeVisit->load(['place','travel']);
+    }
+
     public function destroy(PlaceVisit $placeVisit) {
         $placeVisit->delete();
         return response()->noContent();

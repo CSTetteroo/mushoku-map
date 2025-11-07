@@ -96,6 +96,11 @@
         }
         .panel-actions button:hover { background: rgba(0,255,200,0.08); }
         .visit-item { padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,0.04); margin: 6px 0; }
+        /* Make visit action buttons styled too */
+        .visit-item button { margin: 4px 6px 0 0; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(0,255,200,0.35); background: rgba(0,0,0,0.2); color: #e6f0ff; cursor: pointer; }
+        .visit-item button:hover { background: rgba(0,255,200,0.08); }
+        .btn-danger { border-color: rgba(255,60,60,0.35) !important; color: #ffb3b3 !important; }
+        .btn-danger:hover { background: rgba(255,60,60,0.12) !important; }
         .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
 
         /* Backdrop */
@@ -412,7 +417,10 @@
                     `<div class="visit-item">`
                     + `<b>#${v.travel_number || '-'}</b> ${v.reason || ''} `
                     + (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '')
-                    + ` <button onclick=\"deleteVisit(${v.id})\">🗑 Remove</button>`
+                    + `<div class=\"panel-actions\" style=\"margin-top:6px\">`
+                    + `<button onclick=\"openVisitEdit(${v.id})\">✏️ Edit</button>`
+                    + `<button class=\"btn-danger\" onclick=\"deleteVisit(${v.id}, ${place.id})\">🗑 Delete</button>`
+                    + `</div>`
                     + `</div>`
                 )).join('')
                 : '<div class="mono" style="opacity:0.8">No visits yet.</div>';
@@ -557,10 +565,17 @@
             await reloadData();
         };
 
-        window.deleteVisit = async function(visitId) {
+        window.deleteVisit = async function(visitId, placeId) {
             if (!confirm('Delete this visit?')) return;
             await api.del(`/api/place-visits/${visitId}`);
             await reloadData();
+            if (placeId) {
+                const p = places.find(pp => pp.id === placeId);
+                if (p) {
+                    const pv = await api.get(`/api/places/${p.id}/visits`);
+                    openPlacePanel(p, pv);
+                }
+            }
         };
 
         window.editPlace = function(placeId) {
@@ -584,6 +599,65 @@
             drawState.points = [[p.y, p.x]];
             drawState.tempLine = L.polyline(drawState.points, { color: '#555', dashArray: '4,4', weight: 3 }).addTo(travelsLayer);
             setMode('drawTravel');
+        };
+
+        window.openVisitEdit = async function(visitId) {
+            // Try to get from global visits first (has relations); fallback to fetch
+            let visit = visits.find(v => v.id === visitId);
+            if (!visit) {
+                try { visit = await api.get(`/api/place-visits/${visitId}`); } catch(e) { console.error(e); }
+            }
+            if (!visit) return alert('Visit not found');
+            const placeOptions = places.map(pl => `<option value='${pl.id}' ${pl.id===visit.place_id? 'selected':''}>${pl.name}</option>`).join('');
+            const travelOptions = `<option value=''>None</option>` + travels.map(t => `<option value='${t.id}' ${visit.travel_id===t.id? 'selected':''}>${t.name || t.type || ('Travel #' + t.id)}</option>`).join('');
+            const html = `
+                <div class='panel-section'><h5>Edit visit</h5>
+                    <label>Travel number<br><input id='vis_num' type='number' value='${visit.travel_number != null ? visit.travel_number : ''}' style='width:100%'></label>
+                </div>
+                <div class='panel-section' style='display:flex; gap:8px'>
+                    <label style='flex:1'>Place<br><select id='vis_place' style='width:100%'>${placeOptions}</select></label>
+                    <label style='flex:1'>Travel<br><select id='vis_travel' style='width:100%'>${travelOptions}</select></label>
+                </div>
+                <div class='panel-section'>
+                    <label>Reason<br><textarea id='vis_reason' rows='2' style='width:100%'>${(visit.reason || '').replaceAll('<','&lt;')}</textarea></label>
+                </div>
+                <div class='panel-section'>
+                    <label>Story time<br><input id='vis_story' type='text' value='${(visit.story_time || '').replaceAll("'","&#39;")}' style='width:100%'></label>
+                </div>
+                <div class='panel-actions'>
+                    <button id='vis_save'>💾 Save</button>
+                    <button id='vis_cancel'>Cancel</button>
+                </div>
+            `;
+            openPanel('Edit visit', html);
+            document.getElementById('vis_save').addEventListener('click', async () => {
+                const travel_number_raw = document.getElementById('vis_num').value;
+                const travel_number = travel_number_raw === '' ? null : Number(travel_number_raw);
+                const place_id = Number(document.getElementById('vis_place').value);
+                const travel_id_raw = document.getElementById('vis_travel').value;
+                const travel_id = travel_id_raw ? Number(travel_id_raw) : null;
+                const reason = (document.getElementById('vis_reason').value || '').trim() || null;
+                const story_time = (document.getElementById('vis_story').value || '').trim() || null;
+                await api.put(`/api/place-visits/${visit.id}`, { place_id, travel_id, travel_number, reason, story_time });
+                await reloadData();
+                // Re-open place panel for new place after save
+                const p = places.find(pp => pp.id === place_id);
+                if (p) {
+                    const pv = await api.get(`/api/places/${p.id}/visits`);
+                    openPlacePanel(p, pv);
+                } else {
+                    closePanel();
+                }
+            });
+            document.getElementById('vis_cancel').addEventListener('click', () => {
+                // If we have original place, reopen
+                const p = places.find(pp => pp.id === visit.place_id);
+                if (p) {
+                    api.get(`/api/places/${p.id}/visits`).then(pv => openPlacePanel(p, pv));
+                } else {
+                    closePanel();
+                }
+            });
         };
 
         async function finishTravelDialog() {
