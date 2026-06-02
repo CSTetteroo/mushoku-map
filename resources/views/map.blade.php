@@ -34,11 +34,21 @@
             /* border: 1px solid rgba(0,0,0,0.2);
             box-shadow: 0 1px 3px rgba(0,0,0,0.25); */
             font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            /* center the badge exactly on the coordinate */
+            transform: translate(-50%, -50%);
         }
         .road-badges .badge {
             display: inline-block;
             min-width: 18px; height: 18px; line-height: 18px;
             margin: 0 2px; padding: 0 4px;
+            border-radius: 9px; background: #222; color: #fff; font-size: 12px; font-weight: 700;
+            text-align: center; border: 1px solid #fff;
+        }
+        /* Generic badge styling for panel usage */
+        .badge {
+            display: inline-block;
+            min-width: 18px; height: 18px; line-height: 18px;
+            margin: 0 4px 4px 0; padding: 0 6px;
             border-radius: 9px; background: #222; color: #fff; font-size: 12px; font-weight: 700;
             text-align: center; border: 1px solid #fff;
         }
@@ -209,7 +219,6 @@
 
             const placeLabels = computePlaceLabels();
             const visitsByTravel = computeVisitsByTravel();
-            const placedBadgeCenters = [];
 
             // Render travels grouped by exact path match so identical geometries merge (show combined numbers)
             const travelGroups = groupTravelsByPath(travels);
@@ -228,9 +237,8 @@
                 });
                 numbers.sort((a,b) => a-b);
                 if (numbers.length) {
-                    const center = line.getBounds().getCenter();
-                    const pos = resolveBadgePosition([center.lat, center.lng], placedBadgeCenters);
-                    placedBadgeCenters.push(pos);
+                    const mid = getPathMidpoint(rep.path);
+                    const pos = mid;
                     const html = `<div class="road-badges">${numbers.map(n => `<span class=\"badge\">${n}</span>`).join('')}</div>`;
                     const icon = L.divIcon({ className: 'road-badges', html, iconSize: null });
                     L.marker(pos, { icon, interactive: false, keyboard: false }).addTo(travelsLayer);
@@ -329,6 +337,35 @@
                 }
             });
             return Object.values(groups);
+        }
+
+        function getPathMidpoint(path) {
+            if (!Array.isArray(path) || path.length === 0) return [0,0];
+            if (path.length === 1) return [path[0][0], path[0][1]];
+            // total length
+            let total = 0;
+            for (let i = 1; i < path.length; i++) {
+                const y0 = path[i-1][0], x0 = path[i-1][1];
+                const y1 = path[i][0], x1 = path[i][1];
+                const dy = y1 - y0, dx = x1 - x0;
+                total += Math.hypot(dy, dx);
+            }
+            const half = total / 2;
+            let acc = 0;
+            for (let i = 1; i < path.length; i++) {
+                const y0 = path[i-1][0], x0 = path[i-1][1];
+                const y1 = path[i][0], x1 = path[i][1];
+                const seg = Math.hypot(y1 - y0, x1 - x0);
+                if (acc + seg >= half) {
+                    const remain = half - acc;
+                    const t = seg === 0 ? 0 : (remain / seg);
+                    return [ y0 + (y1 - y0) * t, x0 + (x1 - x0) * t ];
+                }
+                acc += seg;
+            }
+            // fallback: last point
+            const last = path[path.length - 1];
+            return [last[0], last[1]];
         }
 
         function resolveBadgePosition([lat, lng], occupied) {
@@ -451,9 +488,9 @@
 
         function openPlacePanel(place, placeVisits) {
             const visitsHtml = (placeVisits && placeVisits.length)
-                    ? placeVisits.map(v => (
-                        `<div class="visit-item">`
-                        + `<b>#${(v.travel_number != null ? v.travel_number : '-')}</b> <span class="rt">${formatRichText(v.reason || '')}</span> `
+                ? placeVisits.map(v => (
+                    `<div class="visit-item">`
+                    + `<b>#${v.travel_number || '-'}</b> <span class="rt">${formatRichText(v.reason || '')}</span> `
                     + (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '')
                     + `<div class=\"panel-actions\" style=\"margin-top:6px\">`
                     + `<button onclick=\"openVisitEdit(${v.id})\">✏️ Edit</button>`
@@ -486,7 +523,8 @@
         function openTravelGroupPanel(group, visitsByTravel) {
             const items = group.travels.map(t => {
                 const nums = visitsByTravel[t.id] || [];
-                const numsLine = nums.length ? `<div class=\"mono\"><b>${nums.join(', ')}</b></div>` : '';
+                const segs = nums.slice().sort((a,b)=>a-b).map(n => `${Number(n)} → ${Number(n)+1}`);
+                const numsLine = segs.length ? `<div class=\"mono\">${segs.map(s => `<span class=\"badge\">${s}</span>`).join(' ')}</div>` : '';
                 return `
                     <div class=\"visit-item\" style=\"margin-bottom:8px\">
                         <div><span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span><b>${t.name || t.type || ('Travel #' + t.id)}</b></div>
@@ -506,7 +544,8 @@
                 (visitsByTravel[t.id] || []).forEach(n => { if (!allNums.includes(n)) allNums.push(n); });
             });
             allNums.sort((a,b) => a-b);
-            const badges = allNums.length ? `<div class=\"panel-section\"><h5>Numbers</h5><div>${allNums.map(n => `<span class=\"badge\">${n}</span>`).join('')}</div></div>` : '';
+            const segments = allNums.map(n => `${Number(n)} → ${Number(n)+1}`);
+            const badges = segments.length ? `<div class=\"panel-section\"><h5>Segments</h5><div>${segments.map(s => `<span class=\"badge\">${s}</span>`).join(' ')}</div></div>` : '';
 
             const html = `
                 ${badges}
