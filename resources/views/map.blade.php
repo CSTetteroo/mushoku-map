@@ -239,7 +239,7 @@
                 if (numbers.length) {
                     const mid = getPathMidpoint(rep.path);
                     const pos = mid;
-                    const html = `<div class="road-badges">${numbers.map(n => `<span class=\"badge\">${n}</span>`).join('')}</div>`;
+                    const html = `<div class="road-badges">${numbers.map(n => `<span class=\"badge\">${n}→${n+1}</span>`).join('')}</div>`;
                     const icon = L.divIcon({ className: 'road-badges', html, iconSize: null });
                     L.marker(pos, { icon, interactive: false, keyboard: false }).addTo(travelsLayer);
                 }
@@ -490,7 +490,7 @@
             const visitsHtml = (placeVisits && placeVisits.length)
                 ? placeVisits.map(v => (
                     `<div class="visit-item">`
-                    + `<b>#${v.travel_number || '-'}</b> <span class="rt">${formatRichText(v.reason || '')}</span> `
+                    + `<b>#${v.travel_number + 1 || '-'}</b> <span class="rt">${formatRichText(v.reason || '')}</span> `
                     + (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '')
                     + `<div class=\"panel-actions\" style=\"margin-top:6px\">`
                     + `<button onclick=\"openVisitEdit(${v.id})\">✏️ Edit</button>`
@@ -602,7 +602,7 @@
                     <label style="flex:1">Color<br><input id="tr_color" type="text" value="${(travel.color || 'red').replaceAll('"','&quot;')}" style="width:100%"></label>
                 </div>
                 <div class="panel-section">
-                    <label>Reason / notes<br><textarea id="tr_reason" rows="3" style="width:100%">${(travel.reason || '').replaceAll('<','&lt;')}</textarea></label>
+                    <label>Reason / notes<br><textarea id="tr_reason" rows="3" style="width:100%; height: 300px">${(travel.reason || '').replaceAll('<','&lt;')}</textarea></label>
                 </div>
                 <div class="panel-section" style="display:flex; gap:8px">
                     <label style="flex:1">From place<br><select id="tr_from" style="width:100%">${options(travel.from_place_id || null)}</select></label>
@@ -729,7 +729,7 @@
                     <label style='flex:1'>Travel<br><select id='vis_travel' style='width:100%'>${travelOptions}</select></label>
                 </div>
                 <div class='panel-section'>
-                    <label>Reason<br><textarea id='vis_reason' rows='2' style='width:100%'>${(visit.reason || '').replaceAll('<','&lt;')}</textarea></label>
+                    <label>Reason<br><textarea id='vis_reason' rows='2' style='width:100%; height: 400px'>${(visit.reason || '').replaceAll('<','&lt;')}</textarea></label>
                 </div>
                 <div class='panel-section'>
                     <label>Story time<br><input id='vis_story' type='text' value='${(visit.story_time || '').replaceAll("'","&#39;")}' style='width:100%'></label>
