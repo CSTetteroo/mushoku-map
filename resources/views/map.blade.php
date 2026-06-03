@@ -1,31 +1,234 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <title>Mushoku Tensei World Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        html, body, #map { height: 100%; margin: 0; }
-        .leaflet-control button { font-family: sans-serif; }
+        html,
+        body,
+        #map {
+            height: 100%;
+            margin: 0;
+        }
+
+        .leaflet-control button {
+            font-family: sans-serif;
+        }
+
         .toolbar {
             position: absolute;
             top: 10px;
             left: 10px;
-            z-index: 1000;
-            background: rgba(255,255,255,0.9);
-            padding: 8px;
-            border-radius: 6px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            z-index: 2600;
+            background: linear-gradient(180deg, rgba(10, 10, 14, 0.92) 0%, rgba(17, 22, 26, 0.94) 100%);
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            backdrop-filter: blur(8px);
             font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            color: #e6f0ff;
+            width: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
-        .toolbar h4 { margin: 0 0 6px; font-size: 14px; }
-        .toolbar button { margin: 2px 0; width: 100%; }
-        .help-tip { font-size: 12px; margin-top: 6px; color: #333; }
-        .color-dot { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:middle; margin-right:6px; border:1px solid #aaa; }
+
+        .toolbar h4 {
+            margin: 0 0 6px;
+            font-size: 14px;
+        }
+
+        .toolbar button {
+            margin: 2px 0;
+            width: 100%;
+        }
+
+        .toolbar .btn,
+        .toolbar button {
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 200, 0.35);
+            background: rgba(0, 0, 0, 0.2);
+            color: #e6f0ff;
+            cursor: pointer;
+        }
+
+        .toolbar .btn:hover,
+        .toolbar button:hover {
+            background: rgba(0, 255, 200, 0.08);
+        }
+
+        .toolbar-section h4 {
+            margin: 0 0 6px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #9fe;
+        }
+
+        .toolbar-section + .toolbar-section {
+            padding-top: 8px;
+            border-top: 1px solid rgba(0, 255, 200, 0.2);
+        }
+
+        .legend {
+            min-width: 200px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            margin: 2px 0;
+        }
+
+        .legend-swatch {
+            width: 14px;
+            height: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .place-list {
+            width: 100%;
+            max-height: 360px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .place-list-items {
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .place-list button {
+            text-align: left;
+            padding: 6px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 255, 200, 0.25);
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            font-size: 12px;
+            color: #e6f0ff;
+        }
+
+        .place-list button:hover {
+            background: rgba(0, 255, 200, 0.08);
+        }
+
+        .story-recap {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #e6f0ff;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .story-recap .story-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            color: #00ffc8;
+            letter-spacing: 0.5px;
+            text-shadow: 0 0 12px rgba(0, 255, 200, 0.3);
+        }
+
+        .story-recap .story-sub {
+            display: inline-block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #b9b9b99c;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            align-self: flex-start;
+        }
+
+        .story-recap .story-body {
+            max-height: 250px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .story-recap .story-body::-webkit-scrollbar { width: 6px; }
+        .story-recap .story-body::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 3px; }
+        .story-recap .story-body::-webkit-scrollbar-thumb { background: rgba(0,255,200,0.3); border-radius: 3px; }
+        .story-recap p { margin: 0 0 10px 0; }
+        .story-recap p:last-child { margin: 0; }
+
+        .story-panel {
+            position: absolute;
+            left: 50%;
+            bottom: 40px;
+            transform: translateX(-50%);
+            z-index: 2550;
+            width: min(800px, 90vw);
+            background: linear-gradient(180deg, rgba(16, 20, 24, 0.96) 0%, rgba(10, 12, 16, 0.98) 100%);
+            padding: 24px 32px;
+            border-radius: 16px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 200, 0.25);
+            backdrop-filter: blur(12px);
+            text-align: left;
+        }
+
+        .story-panel.hidden {
+            display: none;
+        }
+
+        .help-tip {
+            font-size: 12px;
+            margin-top: 6px;
+            color: #b7d9ff;
+        }
+
+        .place-highlight .ring {
+            width: 100%; height: 100%;
+            border-radius: 50%;
+            border: 3px solid #00ffc8;
+            box-shadow: 0 0 14px #00ffc8, inset 0 0 14px #00ffc8;
+            animation: pulse-ring 1.5s infinite ease-out;
+            box-sizing: border-box;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.1); opacity: 1; }
+            100% { transform: scale(1.1); opacity: 0; }
+        }
+        .path-highlight {
+            animation: path-glow 1.2s infinite alternate ease-in-out;
+            pointer-events: none;
+        }
+        @keyframes path-glow {
+            0% { opacity: 0.3; stroke-width: 6; filter: drop-shadow(0 0 4px #00ffc8); }
+            100% { opacity: 0.9; stroke-width: 10; filter: drop-shadow(0 0 12px #00ffc8); }
+        }
+
+        .color-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin-right: 6px;
+            border: 1px solid #aaa;
+        }
+
         .place-number {
-            background: #222; color: #fff; border-radius: 10px; padding: 0 6px; font-weight: 700;
-            border: 1px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+            background: #222;
+            color: #fff;
+            border-radius: 10px;
+            padding: 0 6px;
+            font-weight: 700;
+            border: 1px solid #fff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
         }
+
         .road-badges {
             pointer-events: none;
             /* background: rgba(255,255,255,0.9); */
@@ -37,20 +240,38 @@
             /* center the badge exactly on the coordinate */
             transform: translate(-50%, -50%);
         }
+
         .road-badges .badge {
             display: inline-block;
-            min-width: 18px; height: 18px; line-height: 18px;
-            margin: 0 2px; padding: 0 4px;
-            border-radius: 9px; background: #222; color: #fff; font-size: 12px; font-weight: 700;
-            text-align: center; border: 1px solid #fff;
+            min-width: 18px;
+            height: 18px;
+            line-height: 18px;
+            margin: 0 2px;
+            padding: 0 4px;
+            border-radius: 9px;
+            background: #222;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            border: 1px solid #fff;
         }
+
         /* Generic badge styling for panel usage */
         .badge {
             display: inline-block;
-            min-width: 18px; height: 18px; line-height: 18px;
-            margin: 0 4px 4px 0; padding: 0 6px;
-            border-radius: 9px; background: #222; color: #fff; font-size: 12px; font-weight: 700;
-            text-align: center; border: 1px solid #fff;
+            min-width: 18px;
+            height: 18px;
+            line-height: 18px;
+            margin: 0 4px 4px 0;
+            padding: 0 6px;
+            border-radius: 9px;
+            background: #222;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            border: 1px solid #fff;
         }
 
         /* Futuristic sliding side panel */
@@ -66,70 +287,162 @@
             z-index: 2000;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(180deg, rgba(10,10,14,0.92) 0%, rgba(17,22,26,0.94) 100%);
+            background: linear-gradient(180deg, rgba(10, 10, 14, 0.92) 0%, rgba(17, 22, 26, 0.94) 100%);
             backdrop-filter: blur(10px);
             color: #e6f0ff;
-            border-left: 1px solid rgba(0,255,200,0.25);
-            box-shadow: -10px 0 30px rgba(0,0,0,0.35);
+            border-left: 1px solid rgba(0, 255, 200, 0.25);
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35);
         }
-        .side-panel.open { transform: translateX(0); }
+
+        .side-panel.open {
+            transform: translateX(0);
+        }
+
         .side-panel-header {
             padding: 14px 16px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid rgba(0,255,200,0.2);
-            background: linear-gradient(90deg, rgba(0,200,255,0.12), rgba(0,255,200,0.06) 60%, transparent);
-            box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(0, 255, 200, 0.2);
+            background: linear-gradient(90deg, rgba(0, 200, 255, 0.12), rgba(0, 255, 200, 0.06) 60%, transparent);
+            box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.04);
         }
+
         .side-panel-title {
-            font-weight: 700; letter-spacing: 0.3px;
-            text-shadow: 0 0 10px rgba(0,255,200,0.35);
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-shadow: 0 0 10px rgba(0, 255, 200, 0.35);
         }
+
         .side-panel-close {
-            background: transparent; border: 1px solid rgba(0,255,200,0.35);
-            color: #aef; padding: 6px 10px; border-radius: 8px; cursor: pointer;
+            background: transparent;
+            border: 1px solid rgba(0, 255, 200, 0.35);
+            color: #aef;
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
         }
-        .side-panel-close:hover { background: rgba(0,255,200,0.08); }
+
+        .side-panel-close:hover {
+            background: rgba(0, 255, 200, 0.08);
+        }
+
         .side-panel-content {
-            padding: 14px 16px; overflow-y: auto; flex: 1;
+            padding: 14px 16px;
+            overflow-y: auto;
+            flex: 1;
         }
-        .panel-section { margin-bottom: 14px; }
+
+        .panel-section {
+            margin-bottom: 14px;
+        }
+
         .panel-section h5 {
-            margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #9fe;
-            text-transform: uppercase; letter-spacing: 0.8px;
+            margin: 0 0 8px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #9fe;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
         }
+
         .panel-actions button {
-            margin: 4px 6px 0 0; padding: 6px 10px;
-            border-radius: 8px; border: 1px solid rgba(0,255,200,0.35);
-            background: rgba(0,0,0,0.2); color: #e6f0ff; cursor: pointer;
+            margin: 4px 6px 0 0;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 200, 0.35);
+            background: rgba(0, 0, 0, 0.2);
+            color: #e6f0ff;
+            cursor: pointer;
         }
-        .panel-actions button:hover { background: rgba(0,255,200,0.08); }
-        .visit-item { padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,0.04); margin: 6px 0; }
+
+        .panel-actions button:hover {
+            background: rgba(0, 255, 200, 0.08);
+        }
+
+        .visit-item {
+            padding: 6px 8px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            margin: 6px 0;
+        }
+
         /* Make visit action buttons styled too */
-        .visit-item button { margin: 4px 6px 0 0; padding: 6px 10px; border-radius: 8px; border: 1px solid rgba(0,255,200,0.35); background: rgba(0,0,0,0.2); color: #e6f0ff; cursor: pointer; }
-        .visit-item button:hover { background: rgba(0,255,200,0.08); }
-        .btn-danger { border-color: rgba(255,60,60,0.35) !important; color: #ffb3b3 !important; }
-        .btn-danger:hover { background: rgba(255,60,60,0.12) !important; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+        .visit-item button {
+            margin: 4px 6px 0 0;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 255, 200, 0.35);
+            background: rgba(0, 0, 0, 0.2);
+            color: #e6f0ff;
+            cursor: pointer;
+        }
+
+        .visit-item button:hover {
+            background: rgba(0, 255, 200, 0.08);
+        }
+
+        .btn-danger {
+            border-color: rgba(255, 60, 60, 0.35) !important;
+            color: #ffb3b3 !important;
+        }
+
+        .btn-danger:hover {
+            background: rgba(255, 60, 60, 0.12) !important;
+        }
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
 
         /* Backdrop */
         .side-panel-backdrop {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.25);
-            backdrop-filter: blur(2px); z-index: 1500; opacity: 0; pointer-events: none; transition: opacity 200ms ease-out;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.25);
+            backdrop-filter: blur(2px);
+            z-index: 1500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 200ms ease-out;
         }
-        .side-panel-backdrop.open { opacity: 1; pointer-events: auto; }
+
+        .side-panel-backdrop.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
     </style>
 </head>
+
 <body>
     <div id="map"></div>
     <div class="toolbar card">
-        <h4>Map tools</h4>
-        <button id="btnAddPlace" class="btn btn-primary">➕ Add Place</button>
-    <button id="btnStartTravel"class="btn">🧭 Start Travel</button>
-    <button id="btnFinish" class="btn" style="display:none;">✅ Finish</button>
-    <button id="btnCancel" class="btn" style="display:none;">✖ Cancel</button>
-        <div class="help-tip" class="btn" id="helpTip">Click a marker to view visits or add one.</div>
+        <div class="toolbar-section">
+            <h4>Map tools</h4>
+            <button id="btnAddPlace" class="btn btn-primary">➕ Add Place</button>
+            <button id="btnStartTravel"class="btn">🧭 Start Travel</button>
+            <button id="btnPlay" class="btn">▶ Start story</button>
+            <button id="btnNext" class="btn" style="display:none;">⏭ Next</button>
+            <button id="btnFinish" class="btn" style="display:none;">✅ Finish</button>
+            <button id="btnCancel" class="btn" style="display:none;">✖ Cancel</button>
+            <div class="help-tip" class="btn" id="helpTip">Click a marker to view visits or add one.</div>
+        </div>
+        <div class="toolbar-section legend" aria-label="Legend">
+            <h4>Legend</h4>
+            <div class="legend-item"><span class="legend-swatch" style="background:red"></span>Horse-drawn carriage</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:orange"></span>On foot</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:blue"></span>By boat</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:yellow"></span>Teleportation</div>
+            <div class="legend-item"><span class="legend-swatch" style="background:cyan"></span>Teleportation disaster</div>
+        </div>
+        <div class="toolbar-section place-list" aria-label="Places list">
+            <h4>Places</h4>
+            <div id="placeListItems" class="place-list-items"></div>
+        </div>
+    </div>
+
+    <div id="storyPanel" class="story-panel hidden" aria-live="polite">
+        <div id="storyRecap" class="story-recap">Start the story to see the current step.</div>
     </div>
 
     <!-- Sliding side panel -->
@@ -147,27 +460,49 @@
         // --- Map setup ---
         const width = 2882;
         const height = 2048;
-        const bounds = [[0, 0], [height, width]];
-        const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1, maxZoom: 5, doubleClickZoom: false });
+        const bounds = [
+            [0, 0],
+            [height, width]
+        ];
+        const map = L.map('map', {
+            crs: L.CRS.Simple,
+            minZoom: -1,
+            maxZoom: 5,
+            doubleClickZoom: false
+        });
         L.imageOverlay('/images/highresmapclearonteal.png', bounds).addTo(map);
         map.fitBounds(bounds);
 
         // --- State & layers ---
-    let places = [];
-    let travels = [];
-    let visits = [];
+        let places = [];
+        let travels = [];
+        let visits = [];
         const markersLayer = L.layerGroup().addTo(map);
         const travelsLayer = L.layerGroup().addTo(map);
+        const highlightLayer = L.layerGroup().addTo(map);
         let mode = 'view'; // 'view' | 'addPlace' | 'drawTravel'
-    let drawState = { startPlace: null, endPlace: null, points: [], tempLine: null };
-    let finishHook = null; // optional override for Finish action (e.g., redraw)
+        let drawState = {
+            startPlace: null,
+            endPlace: null,
+            points: [],
+            tempLine: null
+        };
+        let finishHook = null; // optional override for Finish action (e.g., redraw)
 
         // --- DOM helpers ---
         const btnAddPlace = document.getElementById('btnAddPlace');
         const btnStartTravel = document.getElementById('btnStartTravel');
-    const btnFinish = document.getElementById('btnFinish');
-    const btnCancel = document.getElementById('btnCancel');
+        const btnPlay = document.getElementById('btnPlay');
+        const btnNext = document.getElementById('btnNext');
+        const btnFinish = document.getElementById('btnFinish');
+        const btnCancel = document.getElementById('btnCancel');
         const helpTip = document.getElementById('helpTip');
+        const placeListItems = document.getElementById('placeListItems');
+        const storyRecap = document.getElementById('storyRecap');
+        const storyPanel = document.getElementById('storyPanel');
+        let storyActive = false;
+        let playIndex = 0;
+        let playSequence = [];
 
         function setMode(newMode) {
             mode = newMode;
@@ -176,7 +511,9 @@
                 btnFinish.style.display = 'none';
                 btnCancel.style.display = '';
             } else if (mode === 'drawTravel') {
-                helpTip.textContent = drawState.startPlace ? 'Drawing: click to add points; click destination place or press Finish to save.' : 'Start Travel: click a starting place marker.';
+                helpTip.textContent = drawState.startPlace ?
+                    'Drawing: click to add points; click destination place or press Finish to save.' :
+                    'Start Travel: click a starting place marker.';
                 btnFinish.style.display = drawState.startPlace ? '' : 'none';
                 btnCancel.style.display = '';
             } else {
@@ -192,15 +529,34 @@
             if (drawState.tempLine) {
                 travelsLayer.removeLayer(drawState.tempLine);
             }
-            drawState = { startPlace: null, endPlace: null, points: [], tempLine: null };
+            drawState = {
+                startPlace: null,
+                endPlace: null,
+                points: [],
+                tempLine: null
+            };
         }
 
         // --- API helpers ---
         const api = {
             get: (url) => fetch(url).then(r => r.json()),
-            post: (url, data) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-            put: (url, data) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
-            del: (url) => fetch(url, { method: 'DELETE' })
+            post: (url, data) => fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(r => r.json()),
+            put: (url, data) => fetch(url, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(r => r.json()),
+            del: (url) => fetch(url, {
+                method: 'DELETE'
+            })
         };
 
         // --- Load & render ---
@@ -224,7 +580,10 @@
             const travelGroups = groupTravelsByPath(travels);
             travelGroups.forEach(group => {
                 const rep = group.travels[0];
-                const line = L.polyline(rep.path, { color: rep.color || 'red', weight: 3 }).addTo(travelsLayer);
+                const line = L.polyline(rep.path, {
+                    color: rep.color || 'red',
+                    weight: 3
+                }).addTo(travelsLayer);
                 line.group = group; // attach
                 // Wire click to open side panel for this group
                 line.on('click', () => openTravelGroupPanel(group, visitsByTravel));
@@ -233,15 +592,26 @@
                 const numbers = [];
                 group.travels.forEach(t => {
                     const nums = visitsByTravel[t.id] || [];
-                    nums.forEach(n => { if (!numbers.includes(n)) numbers.push(n); });
+                    nums.forEach(n => {
+                        if (!numbers.includes(n)) numbers.push(n);
+                    });
                 });
-                numbers.sort((a,b) => a-b);
+                numbers.sort((a, b) => a - b);
                 if (numbers.length) {
                     const mid = getPathMidpoint(rep.path);
                     const pos = mid;
-                    const html = `<div class="road-badges">${numbers.map(n => `<span class=\"badge\">${n}→${n+1}</span>`).join('')}</div>`;
-                    const icon = L.divIcon({ className: 'road-badges', html, iconSize: null });
-                    L.marker(pos, { icon, interactive: false, keyboard: false }).addTo(travelsLayer);
+                    const html =
+                        `<div class="road-badges">${numbers.map(n => `<span class=\"badge\">${n}→${n+1}</span>`).join('')}</div>`;
+                    const icon = L.divIcon({
+                        className: 'road-badges',
+                        html,
+                        iconSize: null
+                    });
+                    L.marker(pos, {
+                        icon,
+                        interactive: false,
+                        keyboard: false
+                    }).addTo(travelsLayer);
                 }
             });
 
@@ -252,7 +622,12 @@
                 // Number label(s) (permanent tooltip) if exist
                 if (placeLabels[p.id] && placeLabels[p.id].length) {
                     const text = placeLabels[p.id].join(', ');
-                    m.bindTooltip(text, { permanent: true, direction: 'top', className: 'place-number', offset: [0, -16] }).openTooltip();
+                    m.bindTooltip(text, {
+                        permanent: true,
+                        direction: 'top',
+                        className: 'place-number',
+                        offset: [0, -16]
+                    }).openTooltip();
                 }
 
 
@@ -262,7 +637,11 @@
                         drawState.startPlace = p;
                         const start = [p.y, p.x];
                         drawState.points = [start];
-                        drawState.tempLine = L.polyline(drawState.points, { color: '#555', dashArray: '4,4', weight: 3 }).addTo(travelsLayer);
+                        drawState.tempLine = L.polyline(drawState.points, {
+                            color: '#555',
+                            dashArray: '4,4',
+                            weight: 3
+                        }).addTo(travelsLayer);
                         setMode('drawTravel');
                         return;
                     }
@@ -277,13 +656,34 @@
                     openPlacePanel(p, pv);
                 });
             });
+
+            renderPlaceList(places);
+        }
+
+        function renderPlaceList(list) {
+            if (!placeListItems) return;
+            const ordered = [...(list || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            placeListItems.innerHTML = ordered.map(p => (
+                `<button data-place-id="${p.id}">${escapeHtml(p.name || 'Unnamed')}</button>`
+            )).join('');
+            Array.from(placeListItems.querySelectorAll('button')).forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = Number(btn.getAttribute('data-place-id'));
+                    const place = places.find(pp => pp.id === id);
+                    if (!place) return;
+                    map.setView([place.y, place.x], Math.max(map.getZoom(), 1));
+                    const pv = await api.get(`/api/places/${place.id}/visits`);
+                    openPlacePanel(place, pv);
+                });
+            });
         }
 
         function computePlaceLabels() {
             // Map place_id => [labels]; start place gets 1; each visit n gives destination label n+1; keep all occurrences
             const labels = {};
             if (!Array.isArray(visits) || visits.length === 0) return labels;
-            const ordered = visits.filter(v => v.travel_number != null).slice().sort((a,b) => a.travel_number - b.travel_number);
+            const ordered = visits.filter(v => v.travel_number != null).slice().sort((a, b) => a.travel_number - b
+                .travel_number);
             if (ordered.length === 0) return labels;
             const first = ordered[0];
             if (first.travel && first.travel.from_place_id) {
@@ -297,7 +697,7 @@
                 if (!labels[v.place_id].includes(label)) labels[v.place_id].push(label);
             });
             // Sort each label list ascending
-            Object.keys(labels).forEach(pid => labels[pid].sort((a,b) => a-b));
+            Object.keys(labels).forEach(pid => labels[pid].sort((a, b) => a - b));
             return labels;
         }
 
@@ -313,7 +713,7 @@
             });
             const out = {};
             Object.keys(map).forEach(id => {
-                out[id] = Array.from(map[id]).sort((a,b) => a-b);
+                out[id] = Array.from(map[id]).sort((a, b) => a - b);
             });
             return out;
         }
@@ -330,7 +730,10 @@
                     } else if (groups[revKey]) {
                         groups[revKey].travels.push(t);
                     } else {
-                        groups[key] = { key, travels: [t] };
+                        groups[key] = {
+                            key,
+                            travels: [t]
+                        };
                     }
                 } catch (e) {
                     // skip non-serializable
@@ -340,26 +743,31 @@
         }
 
         function getPathMidpoint(path) {
-            if (!Array.isArray(path) || path.length === 0) return [0,0];
+            if (!Array.isArray(path) || path.length === 0) return [0, 0];
             if (path.length === 1) return [path[0][0], path[0][1]];
             // total length
             let total = 0;
             for (let i = 1; i < path.length; i++) {
-                const y0 = path[i-1][0], x0 = path[i-1][1];
-                const y1 = path[i][0], x1 = path[i][1];
-                const dy = y1 - y0, dx = x1 - x0;
+                const y0 = path[i - 1][0],
+                    x0 = path[i - 1][1];
+                const y1 = path[i][0],
+                    x1 = path[i][1];
+                const dy = y1 - y0,
+                    dx = x1 - x0;
                 total += Math.hypot(dy, dx);
             }
             const half = total / 2;
             let acc = 0;
             for (let i = 1; i < path.length; i++) {
-                const y0 = path[i-1][0], x0 = path[i-1][1];
-                const y1 = path[i][0], x1 = path[i][1];
+                const y0 = path[i - 1][0],
+                    x0 = path[i - 1][1];
+                const y1 = path[i][0],
+                    x1 = path[i][1];
                 const seg = Math.hypot(y1 - y0, x1 - x0);
                 if (acc + seg >= half) {
                     const remain = half - acc;
                     const t = seg === 0 ? 0 : (remain / seg);
-                    return [ y0 + (y1 - y0) * t, x0 + (x1 - x0) * t ];
+                    return [y0 + (y1 - y0) * t, x0 + (x1 - x0) * t];
                 }
                 acc += seg;
             }
@@ -371,9 +779,19 @@
         function resolveBadgePosition([lat, lng], occupied) {
             // Avoid overlapping badge markers by offsetting if another badge is nearby
             const offsets = [
-                [0, 0], [0, -18], [0, 18], [-18, 0], [18, 0],
-                [-14, -14], [-14, 14], [14, -14], [14, 14],
-                [0, -32], [0, 32], [-32, 0], [32, 0]
+                [0, 0],
+                [0, -18],
+                [0, 18],
+                [-18, 0],
+                [18, 0],
+                [-14, -14],
+                [-14, 14],
+                [14, -14],
+                [14, 14],
+                [0, -32],
+                [0, 32],
+                [-32, 0],
+                [32, 0]
             ];
             const thresholdSq = 20 * 20; // pixels^2 (Simple CRS -> lat/lng are pixels)
             for (let i = 0; i < offsets.length; i++) {
@@ -382,7 +800,10 @@
                 for (const q of occupied) {
                     const dx = p[0] - q[0];
                     const dy = p[1] - q[1];
-                    if ((dx*dx + dy*dy) < thresholdSq) { ok = false; break; }
+                    if ((dx * dx + dy * dy) < thresholdSq) {
+                        ok = false;
+                        break;
+                    }
                 }
                 if (ok) return p;
             }
@@ -396,13 +817,37 @@
             cleanupDrawing();
             setMode(mode === 'drawTravel' ? 'view' : 'drawTravel');
         });
+        btnPlay.addEventListener('click', async () => {
+            if (storyActive) {
+                stopStoryPlayback();
+                return;
+            }
+            if (!Array.isArray(visits) || visits.length === 0) {
+                alert('No visits found to play.');
+                return;
+            }
+            playSequence = buildStorySequence(visits);
+            if (playSequence.length === 0) {
+                alert('No ordered visits found to play.');
+                return;
+            }
+            await startStoryPlayback();
+        });
+
+        btnNext.addEventListener('click', async () => {
+            if (!storyActive) return;
+            await stepStoryPlayback();
+        });
         btnFinish.addEventListener('click', async () => {
             if (mode !== 'drawTravel') return;
             if (typeof finishHook === 'function') {
                 await finishHook();
                 return;
             }
-            if (!drawState.startPlace) { alert('Select a starting place first.'); return; }
+            if (!drawState.startPlace) {
+                alert('Select a starting place first.');
+                return;
+            }
             await finishTravelDialog();
         });
         btnCancel.addEventListener('click', () => setMode('view'));
@@ -413,13 +858,24 @@
                 const name = prompt('Place name?');
                 if (!name) return;
                 const description = prompt('Description?') || null;
-                const { lat, lng } = e.latlng; // Simple CRS: lat=y, lng=x
-                await api.post('/api/places', { name, description, x: lng, y: lat });
+                const {
+                    lat,
+                    lng
+                } = e.latlng; // Simple CRS: lat=y, lng=x
+                await api.post('/api/places', {
+                    name,
+                    description,
+                    x: lng,
+                    y: lat
+                });
                 setMode('view');
                 await reloadData();
             } else if (mode === 'drawTravel' && drawState.startPlace) {
                 // Add point to path
-                const { lat, lng } = e.latlng;
+                const {
+                    lat,
+                    lng
+                } = e.latlng;
                 drawState.points.push([lat, lng]);
                 if (drawState.tempLine) drawState.tempLine.setLatLngs(drawState.points);
             }
@@ -439,6 +895,138 @@
             sidePanelBackdrop.classList.add('open');
             sidePanel.setAttribute('aria-hidden', 'false');
         }
+
+        function buildStorySequence(allVisits) {
+            const ordered = allVisits
+                .filter(v => v.travel_number != null)
+                .slice()
+                .sort((a, b) => a.travel_number - b.travel_number);
+            if (ordered.length === 0) return [];
+            const seq = [];
+            const first = ordered[0];
+            if (first.travel && first.travel.from_place_id) {
+                seq.push({ kind: 'start', placeId: first.travel.from_place_id, label: 1, visit: null });
+            }
+            ordered.forEach(v => {
+                if (v.travel && v.travel.from_place_id) {
+                    seq.push({
+                        kind: 'travel',
+                        label: Number(v.travel_number),
+                        travel: v.travel,
+                        fromPlaceId: v.travel.from_place_id,
+                        toPlaceId: v.place_id
+                    });
+                }
+                seq.push({ kind: 'visit', placeId: v.place_id, label: Number(v.travel_number) + 1, visit: v });
+            });
+            return seq;
+        }
+
+        async function startStoryPlayback() {
+            storyActive = true;
+            playIndex = 0;
+            btnPlay.textContent = '■ Stop';
+            btnPlay.classList.add('btn-danger');
+            btnNext.style.display = '';
+            if (storyPanel) storyPanel.classList.remove('hidden');
+            await stepStoryPlayback();
+        }
+
+        async function stepStoryPlayback() {
+            if (playIndex >= playSequence.length) {
+                stopStoryPlayback();
+                return;
+            }
+            highlightLayer.clearLayers();
+            const step = playSequence[playIndex];
+            const storyZoomLevel = 0.7; // A bit more zoomed out than 1
+
+            if (step.kind === 'travel' && step.travel) {
+                const focus = getTravelFocus(step.travel, step.fromPlaceId, step.toPlaceId);
+                if (focus) map.setView(focus, storyZoomLevel);
+                renderStoryRecap(step, null);
+                if (Array.isArray(step.travel.path)) {
+                    L.polyline(step.travel.path, {
+                        color: '#00ffc8',
+                        weight: 8,
+                        opacity: 0.8,
+                        className: 'path-highlight',
+                        interactive: false
+                    }).addTo(highlightLayer);
+                }
+            } else {
+                const place = places.find(p => p.id === step.placeId);
+                if (place) {
+                    map.setView([place.y, place.x], storyZoomLevel);
+                    renderStoryRecap(step, place);
+                    const icon = L.divIcon({
+                        className: 'place-highlight',
+                        html: '<div class=\"ring\"></div>',
+                        iconSize: [60, 60],
+                        iconAnchor: [30, 30]
+                    });
+                    L.marker([place.y, place.x], { icon, interactive: false, keyboard: false }).addTo(highlightLayer);
+                }
+            }
+            playIndex += 1;
+        }
+
+        function stopStoryPlayback() {
+            storyActive = false;
+            playIndex = 0;
+            playSequence = [];
+            btnPlay.textContent = '▶ Start story';
+            btnPlay.classList.remove('btn-danger');
+            btnNext.style.display = 'none';
+            if (storyRecap) storyRecap.textContent = 'Start the story to see the current step.';
+            if (storyPanel) storyPanel.classList.add('hidden');
+            highlightLayer.clearLayers();
+        }
+
+        function renderStoryRecap(step, place) {
+            if (!storyRecap) return;
+            if (step.kind === 'travel' && step.travel) {
+                const from = places.find(p => p.id === step.fromPlaceId);
+                const to = places.find(p => p.id === step.toPlaceId);
+                const travelName = step.travel.name || step.travel.type || ('Travel #' + step.travel.id);
+                const reason = step.travel.reason ? formatRichText(step.travel.reason) : '';
+                const title = `Travel ${step.label}`;
+                const route = `${from ? from.name : 'Unknown'} → ${to ? to.name : 'Unknown'}`;
+                const subtitle = `<div class=\"story-sub\">${escapeHtml(travelName)} · ${escapeHtml(route)}</div>`;
+                const reasonLine = reason ? `<div class=\"story-body\">${reason}</div>` : '<div class=\"story-body\" style=\"opacity:0.6;font-style:italic\">No travel notes.</div>';
+                storyRecap.innerHTML = `<div class=\"story-title\">${escapeHtml(title)}</div>${subtitle}${reasonLine}`;
+                return;
+            }
+            if (!place) return;
+            const visit = step.visit;
+            const titlePrefix = step.kind === 'start' ? 'Start' : `Visit ${step.label}`;
+            const title = `${titlePrefix}: ${place.name || 'Unnamed'}`;
+            const travelName = visit && visit.travel ? (visit.travel.name || visit.travel.type || ('Travel #' + visit.travel.id)) : null;
+            const storyTime = visit && visit.story_time ? `(${visit.story_time})` : '';
+            const reason = visit && visit.reason ? formatRichText(visit.reason) : '';
+            const travelLine = travelName ? `<div class=\"story-sub\">${escapeHtml(travelName)} ${escapeHtml(storyTime)}</div>` : '';
+            const reasonLine = reason ? `<div class=\"story-body\">${reason}</div>` : '<div class=\"story-body\" style=\"opacity:0.6;font-style:italic\">No visit notes.</div>';
+            storyRecap.innerHTML = `<div class=\"story-title\">${escapeHtml(title)}</div>${travelLine}${reasonLine}`;
+        }
+
+        function getTravelFocus(travel, fromPlaceId, toPlaceId) {
+            if (Array.isArray(travel.path) && travel.path.length > 1) {
+                const mid = getPathMidpoint(travel.path);
+                return [mid[0], mid[1]];
+            }
+            const from = places.find(p => p.id === fromPlaceId);
+            const to = places.find(p => p.id === toPlaceId);
+            if (from && to) {
+                return [
+                    from.y + (to.y - from.y) * 0.5,
+                    from.x + (to.x - from.x) * 0.5
+                ];
+            }
+            if (from) return [from.y, from.x];
+            if (to) return [to.y, to.x];
+            return null;
+        }
+
         function closePanel() {
             sidePanel.classList.remove('open');
             sidePanelBackdrop.classList.remove('open');
@@ -446,7 +1034,9 @@
         }
         sidePanelClose.addEventListener('click', closePanel);
         sidePanelBackdrop.addEventListener('click', closePanel);
-        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePanel(); });
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePanel();
+        });
 
         // --- Minimal rich text rendering (bullets + line breaks) ---
         function escapeHtml(s) {
@@ -456,6 +1046,7 @@
                 .replaceAll('>', '&gt;')
                 .replaceAll('"', '&quot;');
         }
+
         function formatRichText(text) {
             if (!text) return '';
             const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
@@ -466,19 +1057,38 @@
                 const line = raw;
                 const m = /^\s*-\s+(.*)$/.exec(line);
                 if (m) {
-                    if (inPara) { html += '</p>'; inPara = false; }
-                    if (!inList) { html += '<ul>'; inList = true; }
+                    if (inPara) {
+                        html += '</p>';
+                        inPara = false;
+                    }
+                    if (!inList) {
+                        html += '<ul>';
+                        inList = true;
+                    }
                     html += `<li>${escapeHtml(m[1])}</li>`;
                     continue;
                 }
                 if (line.trim() === '') {
-                    if (inPara) { html += '</p>'; inPara = false; }
-                    if (inList) { html += '</ul>'; inList = false; }
+                    if (inPara) {
+                        html += '</p>';
+                        inPara = false;
+                    }
+                    if (inList) {
+                        html += '</ul>';
+                        inList = false;
+                    }
                     continue;
                 }
-                if (inList) { html += '</ul>'; inList = false; }
-                if (!inPara) { html += '<p>'; inPara = true; }
-                else { html += '<br>'; }
+                if (inList) {
+                    html += '</ul>';
+                    inList = false;
+                }
+                if (!inPara) {
+                    html += '<p>';
+                    inPara = true;
+                } else {
+                    html += '<br>';
+                }
                 html += escapeHtml(line);
             }
             if (inPara) html += '</p>';
@@ -487,18 +1097,18 @@
         }
 
         function openPlacePanel(place, placeVisits) {
-            const visitsHtml = (placeVisits && placeVisits.length)
-                ? placeVisits.map(v => (
-                    `<div class="visit-item">`
-                    + `<b>#${v.travel_number + 1 || '-'}</b> <span class="rt">${formatRichText(v.reason || '')}</span> `
-                    + (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '')
-                    + `<div class=\"panel-actions\" style=\"margin-top:6px\">`
-                    + `<button onclick=\"openVisitEdit(${v.id})\">✏️ Edit</button>`
-                    + `<button class=\"btn-danger\" onclick=\"deleteVisit(${v.id}, ${place.id})\">🗑 Delete</button>`
-                    + `</div>`
-                    + `</div>`
-                )).join('')
-                : '<div class="mono" style="opacity:0.8">No visits yet.</div>';
+            const visitsHtml = (placeVisits && placeVisits.length) ?
+                placeVisits.map(v => (
+                    `<div class="visit-item">` +
+                    `<b>#${v.travel_number + 1 || '-'}</b> <span class="rt">${formatRichText(v.reason || '')}</span> ` +
+                    (v.story_time ? `<span class="mono">(${v.story_time})</span>` : '') +
+                    `<div class=\"panel-actions\" style=\"margin-top:6px\">` +
+                    `<button onclick=\"openVisitEdit(${v.id})\">✏️ Edit</button>` +
+                    `<button class=\"btn-danger\" onclick=\"deleteVisit(${v.id}, ${place.id})\">🗑 Delete</button>` +
+                    `</div>` +
+                    `</div>`
+                )).join('') :
+                '<div class="mono" style="opacity:0.8">No visits yet.</div>';
 
             const html = `
                 <div class="panel-section">
@@ -523,8 +1133,10 @@
         function openTravelGroupPanel(group, visitsByTravel) {
             const items = group.travels.map(t => {
                 const nums = visitsByTravel[t.id] || [];
-                const segs = nums.slice().sort((a,b)=>a-b).map(n => `${Number(n)} → ${Number(n)+1}`);
-                const numsLine = segs.length ? `<div class=\"mono\">${segs.map(s => `<span class=\"badge\">${s}</span>`).join(' ')}</div>` : '';
+                const segs = nums.slice().sort((a, b) => a - b).map(n => `${Number(n)} → ${Number(n)+1}`);
+                const numsLine = segs.length ?
+                    `<div class=\"mono\">${segs.map(s => `<span class=\"badge\">${s}</span>`).join(' ')}</div>` :
+                    '';
                 return `
                     <div class=\"visit-item\" style=\"margin-bottom:8px\">
                         <div><span class=\"color-dot\" style=\"background:${t.color || 'red'}\"></span><b>${t.name || t.type || ('Travel #' + t.id)}</b></div>
@@ -541,11 +1153,15 @@
 
             const allNums = [];
             group.travels.forEach(t => {
-                (visitsByTravel[t.id] || []).forEach(n => { if (!allNums.includes(n)) allNums.push(n); });
+                (visitsByTravel[t.id] || []).forEach(n => {
+                    if (!allNums.includes(n)) allNums.push(n);
+                });
             });
-            allNums.sort((a,b) => a-b);
+            allNums.sort((a, b) => a - b);
             const segments = allNums.map(n => `${Number(n)} → ${Number(n)+1}`);
-            const badges = segments.length ? `<div class=\"panel-section\"><h5>Segments</h5><div>${segments.map(s => `<span class=\"badge\">${s}</span>`).join(' ')}</div></div>` : '';
+            const badges = segments.length ?
+                `<div class=\"panel-section\"><h5>Segments</h5><div>${segments.map(s => `<span class=\"badge\">${s}</span>`).join(' ')}</div></div>` :
+                '';
 
             const html = `
                 ${badges}
@@ -575,11 +1191,19 @@
             openPanel('Edit place', html);
             document.getElementById('pl_save').addEventListener('click', async () => {
                 const name = (document.getElementById('pl_name').value || '').trim();
-                if (!name) { alert('Name is required'); return; }
+                if (!name) {
+                    alert('Name is required');
+                    return;
+                }
                 const description = (document.getElementById('pl_desc').value || '').trim() || null;
                 const x = parseFloat(document.getElementById('pl_x').value);
                 const y = parseFloat(document.getElementById('pl_y').value);
-                await api.put(`/api/places/${place.id}`, { name, description, x, y });
+                await api.put(`/api/places/${place.id}`, {
+                    name,
+                    description,
+                    x,
+                    y
+                });
                 await reloadData();
                 closePanel();
             });
@@ -589,7 +1213,8 @@
         function openTravelEditPanel(travel) {
             const options = (selectedId) => {
                 const none = `<option value="">(none)</option>`;
-                const opts = places.map(pl => `<option value="${pl.id}" ${selectedId===pl.id? 'selected':''}>${pl.name}</option>`).join('');
+                const opts = places.map(pl =>
+                    `<option value="${pl.id}" ${selectedId===pl.id? 'selected':''}>${pl.name}</option>`).join('');
                 return none + opts;
             };
             const html = `
@@ -624,7 +1249,15 @@
                 const toRaw = document.getElementById('tr_to').value;
                 const from_place_id = fromRaw ? Number(fromRaw) : null;
                 const to_place_id = toRaw ? Number(toRaw) : null;
-                const payload = { name, type, color, reason, path: travel.path, from_place_id, to_place_id };
+                const payload = {
+                    name,
+                    type,
+                    color,
+                    reason,
+                    path: travel.path,
+                    from_place_id,
+                    to_place_id
+                };
                 await api.put(`/api/travels/${travel.id}`, payload);
                 await reloadData();
                 closePanel();
@@ -636,7 +1269,8 @@
         window.addVisit = function(placeId) {
             const place = places.find(p => p.id === placeId);
             if (!place) return;
-            const travelOptions = '<option value="">None</option>' + travels.map(t => `<option value='${t.id}'>${t.name || t.type || ('Travel #' + t.id)}</option>`).join('');
+            const travelOptions = '<option value="">None</option>' + travels.map(t =>
+                `<option value='${t.id}'>${t.name || t.type || ('Travel #' + t.id)}</option>`).join('');
             const html = `
                 <div class='panel-section'><h5>New visit at ${place.name}</h5>
                     <label>Travel number<br><input id='nv_num' type='number' style='width:100%'></label>
@@ -663,8 +1297,17 @@
                 const travel_id = travel_id_raw ? Number(travel_id_raw) : null;
                 const reason = (document.getElementById('nv_reason').value || '').trim() || null;
                 const story_time = (document.getElementById('nv_story').value || '').trim() || null;
-                if (!reason) { alert('Reason required'); return; }
-                await api.post('/api/place-visits', { place_id: placeId, travel_id, travel_number, reason, story_time });
+                if (!reason) {
+                    alert('Reason required');
+                    return;
+                }
+                await api.post('/api/place-visits', {
+                    place_id: placeId,
+                    travel_id,
+                    travel_number,
+                    reason,
+                    story_time
+                });
                 await reloadData();
                 const pv = await api.get(`/api/places/${place.id}/visits`);
                 openPlacePanel(place, pv);
@@ -706,8 +1349,14 @@
             cleanupDrawing();
             setMode('drawTravel');
             drawState.startPlace = p;
-            drawState.points = [[p.y, p.x]];
-            drawState.tempLine = L.polyline(drawState.points, { color: '#555', dashArray: '4,4', weight: 3 }).addTo(travelsLayer);
+            drawState.points = [
+                [p.y, p.x]
+            ];
+            drawState.tempLine = L.polyline(drawState.points, {
+                color: '#555',
+                dashArray: '4,4',
+                weight: 3
+            }).addTo(travelsLayer);
             setMode('drawTravel');
         };
 
@@ -715,11 +1364,19 @@
             // Try to get from global visits first (has relations); fallback to fetch
             let visit = visits.find(v => v.id === visitId);
             if (!visit) {
-                try { visit = await api.get(`/api/place-visits/${visitId}`); } catch(e) { console.error(e); }
+                try {
+                    visit = await api.get(`/api/place-visits/${visitId}`);
+                } catch (e) {
+                    console.error(e);
+                }
             }
             if (!visit) return alert('Visit not found');
-            const placeOptions = places.map(pl => `<option value='${pl.id}' ${pl.id===visit.place_id? 'selected':''}>${pl.name}</option>`).join('');
-            const travelOptions = `<option value=''>None</option>` + travels.map(t => `<option value='${t.id}' ${visit.travel_id===t.id? 'selected':''}>${t.name || t.type || ('Travel #' + t.id)}</option>`).join('');
+            const placeOptions = places.map(pl =>
+                `<option value='${pl.id}' ${pl.id===visit.place_id? 'selected':''}>${pl.name}</option>`).join(
+                '');
+            const travelOptions = `<option value=''>None</option>` + travels.map(t =>
+                `<option value='${t.id}' ${visit.travel_id===t.id? 'selected':''}>${t.name || t.type || ('Travel #' + t.id)}</option>`
+                ).join('');
             const html = `
                 <div class='panel-section'><h5>Edit visit</h5>
                     <label>Travel number<br><input id='vis_num' type='number' value='${visit.travel_number != null ? visit.travel_number : ''}' style='width:100%'></label>
@@ -748,7 +1405,13 @@
                 const travel_id = travel_id_raw ? Number(travel_id_raw) : null;
                 const reason = (document.getElementById('vis_reason').value || '').trim() || null;
                 const story_time = (document.getElementById('vis_story').value || '').trim() || null;
-                await api.put(`/api/place-visits/${visit.id}`, { place_id, travel_id, travel_number, reason, story_time });
+                await api.put(`/api/place-visits/${visit.id}`, {
+                    place_id,
+                    travel_id,
+                    travel_number,
+                    reason,
+                    story_time
+                });
                 await reloadData();
                 // Re-open place panel for new place after save
                 const p = places.find(pp => pp.id === place_id);
@@ -771,7 +1434,10 @@
         };
 
         async function finishTravelDialog() {
-            if (drawState.points.length < 2) { alert('Add at least two points.'); return; }
+            if (drawState.points.length < 2) {
+                alert('Add at least two points.');
+                return;
+            }
             let defaultName = null;
             if (drawState.startPlace && drawState.endPlace) {
                 defaultName = `Connection between ${drawState.startPlace.name} and ${drawState.endPlace.name}`;
@@ -781,19 +1447,32 @@
             const color = prompt('Color? (CSS color or hex, default red)', 'red') || 'red';
             const reason = prompt('Reason/notes?') || null;
             const path = drawState.points;
-            const payload = { name, type, color, reason, path };
+            const payload = {
+                name,
+                type,
+                color,
+                reason,
+                path
+            };
             if (drawState.startPlace) payload.from_place_id = drawState.startPlace.id;
             if (drawState.endPlace) payload.to_place_id = drawState.endPlace.id;
             const created = await api.post('/api/travels', payload);
 
             // Offer to log this traversal as an occurrence in the story sequence
-            const log = confirm('Log this traversal in the sequence (create a visit at the destination with a travel number)?');
+            const log = confirm(
+                'Log this traversal in the sequence (create a visit at the destination with a travel number)?');
             if (log) {
                 const travelNum = prompt('Travel number? (sequence order)');
                 const storyTime = prompt('When in story?') || null;
                 const visitReason = reason || prompt('Reason for visit?') || null;
                 if (drawState.endPlace && travelNum) {
-                    await api.post('/api/place-visits', { place_id: drawState.endPlace.id, travel_id: created.id, travel_number: Number(travelNum), story_time: storyTime, reason: visitReason });
+                    await api.post('/api/place-visits', {
+                        place_id: drawState.endPlace.id,
+                        travel_id: created.id,
+                        travel_number: Number(travelNum),
+                        story_time: storyTime,
+                        reason: visitReason
+                    });
                 }
             }
             setMode('view');
@@ -813,14 +1492,32 @@
             setMode('drawTravel');
             // Seed with first point of existing path as start
             drawState.startPlace = null; // allow free redraw (no enforced start place)
-            drawState.points = [ ...t.path ];
-            drawState.tempLine = L.polyline(drawState.points, { color: '#555', dashArray: '4,4', weight: 3 }).addTo(travelsLayer);
+            drawState.points = [...t.path];
+            drawState.tempLine = L.polyline(drawState.points, {
+                color: '#555',
+                dashArray: '4,4',
+                weight: 3
+            }).addTo(travelsLayer);
             helpTip.textContent = 'Redraw: click to add points; press Finish to save or Cancel to discard.';
-            const proceed = confirm('Overwrite this travel path? Click OK to start adding points. Use Finish to save or Cancel to discard.');
-            if (!proceed) { setMode('view'); return; }
+            const proceed = confirm(
+                'Overwrite this travel path? Click OK to start adding points. Use Finish to save or Cancel to discard.'
+                );
+            if (!proceed) {
+                setMode('view');
+                return;
+            }
             finishHook = async () => {
-                if (drawState.points.length < 2) { alert('Add at least two points.'); return; }
-                await api.put(`/api/travels/${t.id}`, { name: t.name, type: t.type, color: t.color, reason: t.reason, path: drawState.points });
+                if (drawState.points.length < 2) {
+                    alert('Add at least two points.');
+                    return;
+                }
+                await api.put(`/api/travels/${t.id}`, {
+                    name: t.name,
+                    type: t.type,
+                    color: t.color,
+                    reason: t.reason,
+                    path: drawState.points
+                });
                 finishHook = null;
                 setMode('view');
                 await reloadData();
@@ -833,10 +1530,8 @@
             await reloadData();
         };
 
-        // Storyboard buttons removed per request; numbers appear on roads and places instead.
-
-        // Initial load
         reloadData();
     </script>
 </body>
+
 </html>
